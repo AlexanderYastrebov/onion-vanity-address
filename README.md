@@ -60,6 +60,76 @@ using 8 threads
 In practice, it finds a 6-character prefix within a minute.
 Each additional character increases search time by a factor of 32.
 
+## Kubernetes
+
+Run distributed vanity address search in Kubernetes cluster using the [demo-k8s.yaml](demo-k8s.yaml) manifest
+without exposing the secret key to the cluster:
+
+```console
+$ # Locally generate secure starting key pair (or use existing one created by Tor)
+$ onion-vanity-address start
+Found start... in 1s after 26921387 attempts (43429741 attempts/s)
+---
+hostname: startxxytwan7gfm6ojs6d2auwhwjhysjz3c5j2hd7grlokzmd4reoqd.onion
+hs_ed25519_public_key: PT0gZWQyNTUxOXYxLXB1YmxpYzogdHlwZTAgPT0AAACUwRne+J2A35is85MvD0Clj2SfEk52LqdHH80VuVlg+Q==
+hs_ed25519_secret_key: PT0gZWQyNTUxOXYxLXNlY3JldDogdHlwZTAgPT0AAABgZ5a7kuS0N1jaA12gtsqI87RPS1eqSj4KWpwXukWtV7pFj6gS200J96P8JDWTpvx000KF3r4l+xYcIJszhPZk
+
+$ # Edit demo-k8s.yaml to configure prefix, starting **public key**, parallelism, and resource limits 💸
+
+$ # Create search job
+$ kubectl apply -f demo-k8s.yaml
+job.batch/ova created
+
+$ # Check the job
+$ kubectl get job ova
+NAME   STATUS    COMPLETIONS   DURATION   AGE
+ova    Running   0/999999      5s         5s
+
+$ # Check pods
+$ kubectl get pods --selector=batch.kubernetes.io/job-name=ova
+NAME          READY   STATUS    RESTARTS   AGE
+ova-0-tz27j   1/1     Running   0          7s
+ova-1-zwlhl   1/1     Running   0          7s
+ova-2-khl7f   1/1     Running   0          7s
+ova-3-9l4z5   1/1     Running   0          7s
+ova-4-tbx2m   1/1     Running   0          7s
+ova-5-mpsz8   1/1     Running   0          7s
+ova-6-xg7ft   1/1     Running   0          7s
+ova-7-6zcn8   1/1     Running   0          7s
+ova-8-cqrtj   1/1     Running   0          7s
+ova-9-dtqhc   1/1     Running   0          7s
+
+$ # Check resource usage
+$ kubectl top pods --selector=batch.kubernetes.io/job-name=ova
+
+$ # Wait for the job to complete
+$ kubectl wait --for=condition=complete job/ova --timeout=1h
+job.batch/ova condition met
+
+$ # Job is complete
+$ kubectl get job ova
+NAME   STATUS     COMPLETIONS   DURATION   AGE
+ova    Complete   1/999999      23m14s     23m44s
+
+$ # Get found offset from the logs
+$ kubectl logs jobs/ova
+Found lukovitsa... in 23m14s after 1003371311076 attempts (719798516 attempts/s)
+---
+hostname: lukovitsa6jy7sldxvdw7wwzdmf5sezbwgr5uf57kkhi3jep25g2d2id.onion
+offset: sgowAsMLwBk=
+
+$ # Locally generate vanity key pair by offsetting the starting secret key
+$ echo PT0gZWQyNTUxOXYxLXNlY3JldDogdHlwZTAgPT0AAABgZ5a7kuS0N1jaA12gtsqI87RPS1eqSj4KWpwXukWtV7pFj6gS200J96P8JDWTpvx000KF3r4l+xYcIJszhPZk | onion-vanity-address --offset=sgowAsMLwBk=
+---
+hostname: lukovitsa6jy7sldxvdw7wwzdmf5sezbwgr5uf57kkhi3jep27gzjlid.onion
+hs_ed25519_public_key: PT0gZWQyNTUxOXYxLXB1YmxpYzogdHlwZTAgPT0AAABdFOqicgeTj8ljvUdv2tkbC9kTIbGj2he/Uo6NpI/XzQ==
+hs_ed25519_secret_key: PT0gZWQyNTUxOXYxLXNlY3JldDogdHlwZTAgPT0AAAAoaPTTqGQGyF3aA12gtsqI87RPS1eqSj4KWpwXukWtVyHuiixSBYjSDLiBwGmeqebH1FX7vsHRPBrojpTFiCGQ
+
+$ # Delete the job
+$ kubectl delete job ova
+job.batch "ova" deleted
+```
+
 ## Similar tools
 
 * [mkp224o](https://github.com/cathugger/mkp224o)
